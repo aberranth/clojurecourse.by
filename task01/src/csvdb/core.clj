@@ -14,7 +14,7 @@
 ;;
 ;; Hint: vec, map, keyword, first
 (defn table-keys [tbl]
-  (vec (map keyword (first student-tbl))))
+  (vec (map keyword (first tbl))))
 
 ;; (key-value-pairs [:id :surname :year :group_id] ["1" "Ivanov" "1996"])
 ;; => (:id "1" :surname "Ivanov" :year "1996")
@@ -63,26 +63,26 @@
 ;;
 ;; Hint: if-not, filter
 (defn where* [data condition-func]
-  (if-not (nil? condition-func) (filter condition-func data)))
+  (if-not (nil? condition-func) (filter condition-func data) data))
 
 ;; (limit* student 1)
 ;; => ({:surname "Ivanov", :year 1998, :id 1})
 ;;
 ;; Hint: if-not, take
 (defn limit* [data lim]
-  (if-not (nil? lim) (take lim data)))
+  (if-not (nil? lim) (take lim data) data))
 
 ;; (order-by* student :year)
 ;; => ({:surname "Sidorov", :year 1996, :id 3} {:surname "Petrov", :year 1997, :id 2} {:surname "Ivanov", :year 1998, :id 1})
 ;; Hint: if-not, sort-by
 (defn order-by* [data column]
-  (if-not (nil? column) (sort-by column data)))
+  (if-not (nil? column) (sort-by column data) data))
 
 ;; (join* (join* student-subject :student_id student :id) :subject_id subject :id)
-;; => [{:subject "Math", :subject_id 1, :surname "Ivanov", :year 1998, :student_id 1, :id 1}
-;;     {:subject "Math", :subject_id 1, :surname "Petrov", :year 1997, :student_id 2, :id 2}
-;;     {:subject "CS", :subject_id 2, :surname "Petrov", :year 1997, :student_id 2, :id 2}
-;;     {:subject "CS", :subject_id 2, :surname "Sidorov", :year 1996, :student_id 3, :id 3}]
+;; => [{:subject "Math", :subject_id 1, :surname "Ivanov",  :year 1998, :student_id 1, :id 1}
+;;     {:subject "Math", :subject_id 1, :surname "Petrov",  :year 1997, :student_id 2, :id 2}
+;;     {:subject "CS",   :subject_id 2, :surname "Petrov",  :year 1997, :student_id 2, :id 2}
+;;     {:subject "CS",   :subject_id 2, :surname "Sidorov", :year 1996, :student_id 3, :id 3}]
 ;;
 ;; Hint: reduce, conj, merge, first, filter, get
 ;; conj[oin]. Returns a new collection with the xs 'added'. (conj nil item)
@@ -97,16 +97,26 @@
   ;;    data2 (lets call each as element2) where column1 = column2.
   ;; 4. Use function 'merge' and merge element1 with each element2.
   ;; 5. Collect merged elements.
-  (let [find-n-merge (fn [row]
-                         
-                         )
-        main-func (fn [current-row remaining-rows result]
-                      (
-                       if (empty? remaining-rows)
-                          (find-n-merge row)
-                          (main-func (first remaining-rows) (rest remaining-rows) (find-n-merge row))
-                          ))]
-    (main-func (first data1) (rest data1) vector)
+  (letfn [(find-matches [row]
+            (where* data2 (fn [row2] (= (get row column1) (get row2 column2)))))
+
+          (merge-matches [row matches result]
+            (if (empty? matches)
+                result
+                (vec (concat result (vec (map (partial merge row) matches))))))
+
+          (find-n-merge[row result]
+            (merge-matches row (find-matches row) result))
+
+          (main-func [current-row remaining-rows result]
+            (if (empty? remaining-rows)
+                (find-n-merge current-row result)
+                (main-func (first remaining-rows)
+                           (rest remaining-rows)
+                           (find-n-merge current-row result))))
+          ]
+
+    (main-func (first data1) (rest data1) [])
     ))
 
 ;; (perform-joins student-subject [[:student_id student :id] [:subject_id subject :id]])
@@ -116,42 +126,42 @@
 ;;     {:subject "CS", :subject_id 2, :surname "Sidorov", :year 1996, :student_id 3, :id 3}]
 ;;
 ;; Hint: loop-recur, let, first, next, join*
-(defn perform-joins [data joins*]
-  (loop [data1 data
-         joins joins*]
-    (if (empty? joins)
-      data1
-      (let [[col1 data2 col2] (first joins)]
-        (recur (join* data1 col1 data2 col2)
-               (next joins))))))
-
-(defn select [data & {:keys [where limit order-by joins]}]
-  (-> data
-      (perform-joins joins)
-      (where* where)
-      (order-by* order-by)
-      (limit* limit)))
-
-(select student)
-;; => [{:id 1, :year 1998, :surname "Ivanov"} {:id 2, :year 1997, :surname "Petrov"} {:id 3, :year 1996, :surname "Sidorov"}]
-
-(select student :order-by :year)
-;; => ({:id 3, :year 1996, :surname "Sidorov"} {:id 2, :year 1997, :surname "Petrov"} {:id 1, :year 1998, :surname "Ivanov"})
-
-(select student :where #(> (:id %) 1))
-;; => ({:id 2, :year 1997, :surname "Petrov"} {:id 3, :year 1996, :surname "Sidorov"})
-
-(select student :limit 2)
-;; => ({:id 1, :year 1998, :surname "Ivanov"} {:id 2, :year 1997, :surname "Petrov"})
-
-(select student :where #(> (:id %) 1) :limit 1)
-;; => ({:id 2, :year 1997, :surname "Petrov"})
-
-(select student :where #(> (:id %) 1) :order-by :year :limit 2)
-;; => ({:id 3, :year 1996, :surname "Sidorov"} {:id 2, :year 1997, :surname "Petrov"})
-
-(select student-subject :joins [[:student_id student :id] [:subject_id subject :id]])
-;; => [{:subject "Math", :subject_id 1, :surname "Ivanov", :year 1998, :student_id 1, :id 1} {:subject "Math", :subject_id 1, :surname "Petrov", :year 1997, :student_id 2, :id 2} {:subject "CS", :subject_id 2, :surname "Petrov", :year 1997, :student_id 2, :id 2} {:subject "CS", :subject_id 2, :surname "Sidorov", :year 1996, :student_id 3, :id 3}]
-
-(select student-subject :limit 2 :joins [[:student_id student :id] [:subject_id subject :id]])
-;; => ({:subject "Math", :subject_id 1, :surname "Ivanov", :year 1998, :student_id 1, :id 1} {:subject "Math", :subject_id 1, :surname "Petrov", :year 1997, :student_id 2, :id 2})
+;; (defn perform-joins [data joins*]
+;;   (loop [data1 data
+;;          joins joins*]
+;;     (if (empty? joins)
+;;       data1
+;;       (let [[col1 data2 col2] (first joins)]
+;;         (recur (join* data1 col1 data2 col2)
+;;                (next joins))))))
+;; 
+;; (defn select [data & {:keys [where limit order-by joins]}]
+;;   (-> data
+;;       (perform-joins joins)
+;;       (where* where)
+;;       (order-by* order-by)
+;;       (limit* limit)))
+;; 
+;; (select student)
+;; ;; => [{:id 1, :year 1998, :surname "Ivanov"} {:id 2, :year 1997, :surname "Petrov"} {:id 3, :year 1996, :surname "Sidorov"}]
+;; 
+;; (select student :order-by :year)
+;; ;; => ({:id 3, :year 1996, :surname "Sidorov"} {:id 2, :year 1997, :surname "Petrov"} {:id 1, :year 1998, :surname "Ivanov"})
+;; 
+;; (select student :where #(> (:id %) 1))
+;; ;; => ({:id 2, :year 1997, :surname "Petrov"} {:id 3, :year 1996, :surname "Sidorov"})
+;; 
+;; (select student :limit 2)
+;; ;; => ({:id 1, :year 1998, :surname "Ivanov"} {:id 2, :year 1997, :surname "Petrov"})
+;; 
+;; (select student :where #(> (:id %) 1) :limit 1)
+;; ;; => ({:id 2, :year 1997, :surname "Petrov"})
+;; 
+;; (select student :where #(> (:id %) 1) :order-by :year :limit 2)
+;; ;; => ({:id 3, :year 1996, :surname "Sidorov"} {:id 2, :year 1997, :surname "Petrov"})
+;; 
+;; (select student-subject :joins [[:student_id student :id] [:subject_id subject :id]])
+;; ;; => [{:subject "Math", :subject_id 1, :surname "Ivanov", :year 1998, :student_id 1, :id 1} {:subject "Math", :subject_id 1, :surname "Petrov", :year 1997, :student_id 2, :id 2} {:subject "CS", :subject_id 2, :surname "Petrov", :year 1997, :student_id 2, :id 2} {:subject "CS", :subject_id 2, :surname "Sidorov", :year 1996, :student_id 3, :id 3}]
+;; 
+;; (select student-subject :limit 2 :joins [[:student_id student :id] [:subject_id subject :id]])
+;; ;; => ({:subject "Math", :subject_id 1, :surname "Ivanov", :year 1998, :student_id 1, :id 1} {:subject "Math", :subject_id 1, :surname "Petrov", :year 1997, :student_id 2, :id 2})
