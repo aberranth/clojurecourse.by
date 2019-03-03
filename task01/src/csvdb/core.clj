@@ -85,6 +85,10 @@
 ;;     {:subject "CS", :subject_id 2, :surname "Sidorov", :year 1996, :student_id 3, :id 3}]
 ;;
 ;; Hint: reduce, conj, merge, first, filter, get
+;; conj[oin]. Returns a new collection with the xs 'added'. (conj nil item)
+;;   returns (item).  The 'addition' may happen at different 'places'
+;;   depending on the concrete type.
+;;
 ;; Here column1 belongs to data1, column2 belongs to data2.
 (defn join* [data1 column1 data2 column2]
   ;; 1. Start collecting results from empty collection.
@@ -93,7 +97,17 @@
   ;;    data2 (lets call each as element2) where column1 = column2.
   ;; 4. Use function 'merge' and merge element1 with each element2.
   ;; 5. Collect merged elements.
-  ())
+  (let [find-n-merge (fn [row]
+                         
+                         )
+        main-func (fn [current-row remaining-rows result]
+                      (
+                       if (empty? remaining-rows)
+                          (find-n-merge row)
+                          (main-func (first remaining-rows) (rest remaining-rows) (find-n-merge row))
+                          ))]
+    (main-func (first data1) (rest data1) vector)
+    ))
 
 ;; (perform-joins student-subject [[:student_id student :id] [:subject_id subject :id]])
 ;; => [{:subject "Math", :subject_id 1, :surname "Ivanov", :year 1998, :student_id 1, :id 1}
