@@ -90,32 +90,51 @@
 ;;   depending on the concrete type.
 ;;
 ;; Here column1 belongs to data1, column2 belongs to data2.
+;; (defn join* [data1 column1 data2 column2]
+;;   ;; 1. Start collecting results from empty collection.
+;;   ;; 2. Go through each element of data1.
+;;   ;; 3. For each element of data1 (lets call it element1) find all elements of
+;;   ;;    data2 (lets call each as element2) where column1 = column2.
+;;   ;; 4. Use function 'merge' and merge element1 with each element2.
+;;   ;; 5. Collect merged elements.
+;;   (letfn [(find-matches [row]
+;;             (where* data2 #(= (get row column1) (get % column2))))
+;; 
+;;           (merge-matches [row matches result]
+;;             (if (empty? matches)
+;;                 result
+;;                 (vec (concat result (vec (map #(merge % row) matches))))))
+;; 
+;;           (find-n-merge[row result]
+;;             (merge-matches row (find-matches row) result))
+;; 
+;;           (main-func [data result]
+;;             (if (empty? (rest data))
+;;                 (find-n-merge (first data) result)
+;;                 (main-func (rest data) (find-n-merge (first data) result))))
+;;           ]
+;; 
+;;     (main-func data1 [])
+;;     ))
+
 (defn join* [data1 column1 data2 column2]
-  ;; 1. Start collecting results from empty collection.
-  ;; 2. Go through each element of data1.
-  ;; 3. For each element of data1 (lets call it element1) find all elements of
-  ;;    data2 (lets call each as element2) where column1 = column2.
-  ;; 4. Use function 'merge' and merge element1 with each element2.
-  ;; 5. Collect merged elements.
   (letfn [(find-matches [row]
             (where* data2 #(= (get row column1) (get % column2))))
 
           (merge-matches [row matches result]
             (if (empty? matches)
-                result
-                (vec (concat result (vec (map #(merge % row) matches))))))
+              result
+              (concat result (map #(merge % row) matches))))
 
           (find-n-merge[row result]
             (merge-matches row (find-matches row) result))
-
-          (main-func [rows result]
-            (if (empty? (rest rows))
-                (find-n-merge (first rows) result)
-                (main-func (rest rows) (find-n-merge (first rows) result))))
           ]
 
-    (main-func data1 [])
-    ))
+    (loop [data data1
+           result '()]
+      (if (empty? (rest data))
+        (vec (find-n-merge (first data) result))
+        (recur (rest data) (find-n-merge (first data) result))))))
 
 ;; (perform-joins student-subject [[:student_id student :id] [:subject_id subject :id]])
 ;; => [{:subject "Math", :subject_id 1, :surname "Ivanov",  :year 1998, :student_id 1, :id 1}
